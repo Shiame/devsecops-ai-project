@@ -15,7 +15,7 @@ jobs:
               java-version: '17'
               cache: 'maven'
           - name: Build with maven
-            run: mvn -B clean package -DSkipTests --file spring-boot-data-jpa-mysql/pom.xml
+            run: mvn -B clean package -DskipTests --file spring-boot-data-jpa-mysql/pom.xml
           - name: Upload backend artifacts
             uses: actions/upload-artifact@v4
             with:
