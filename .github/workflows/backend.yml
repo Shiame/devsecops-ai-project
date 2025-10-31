@@ -3,8 +3,8 @@ on:
     push:
         branches: ["main"]
 jobs:
-    steps:
+    build:
         runs-on: ubuntu-latest
         steps:
-            - name: a sample test message
+          - name: a sample test message
             run: echo "This is my first pipeline good luck to me"
