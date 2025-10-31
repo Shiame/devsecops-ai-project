@@ -6,5 +6,7 @@ jobs:
     build:
         runs-on: ubuntu-latest
         steps:
-          - name: a sample test message
-            run: echo "This is my first pipeline good luck to me"
+          - name: Checkout code
+            uses: actions/checkout@v4
+          - name: view files
+            run: ls -R
