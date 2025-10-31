@@ -15,7 +15,7 @@ jobs:
               java-version: '17'
               cache: 'maven'
           - name: Build with maven
-            run: mvn -B clean package -DskipTests --file spring-boot-data-jpa-mysql/pom.xml
+            run: cd spring-boot-data-jpa-mysql && mvn -B clean package -DskipTests
           - name: Upload backend artifacts
             uses: actions/upload-artifact@v4
             with:
@@ -41,11 +41,10 @@ jobs:
 
         - name: build docker image
           run: |
-            docker build -t ${{ secrets.DOCKERHUB_USERNAME}}/backen-app:latest \
-            -f spring-boot-data-jpa-mysql/Dockerfile spring-boot-data-jpa-mysql/
+            cd spring-boot-data-jpa-mysql && docker build -f "Dockerfile" -t ${{ secrets.DOCKERHUB_USERNAME}}/backend-app:latest .
 
         - name: push to DockerHub
-          run: docker push ${{ secrets.DOCKERHUB_USERNAME}}/backen-app:latest
+          run: docker push ${{ secrets.DOCKERHUB_USERNAME}}/backend-app:latest
 
 
 
