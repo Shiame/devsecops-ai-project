@@ -2,6 +2,9 @@ name: frontend CI pipeline
 on:
   push:
     branches: ["main"]
+    paths:
+      - 'angular-16-crud-example/**'
+      - '.github/workflows/frontend.yml'
 
 jobs:
   build:
@@ -46,7 +49,7 @@ jobs:
           path: angular-16-crud-example/dist
 
       - name: build docker image
-        run: cd angular-16-crud-example && docker build -f "DockerFile" -t ${{ secrets.DOCKERHUB_USERNAME }}/frontend-app:latest .
+        run: cd angular-16-crud-example && docker build -f "Dockerfile" -t ${{ secrets.DOCKERHUB_USERNAME }}/frontend-app:latest .
 
       - name: Log in into docker hub
         run: docker login -u ${{ secrets.DOCKERHUB_USERNAME }} -p ${{ secrets.DOCKERHUB_PASSWORD }}
