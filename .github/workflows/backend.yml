@@ -1,10 +1,11 @@
 name: backend CI pipeline
 on:
-    push:
-        branches: ["main"]
-        paths:
-        - 'spring-boot-data-jpa-mysql/**'
-        - '.github/workflows/backend.yml'
+  push:
+    branches: ["main"]
+    paths:
+      - "spring-boot-data-jpa-mysql/**"
+      - ".github/workflows/backend.yml"
+
 jobs:
     build:
         runs-on: ubuntu-latest
