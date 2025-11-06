@@ -9,12 +9,15 @@ permissions:
   security-events: write
 
 jobs:
+  # === 1. SAST (CodeQL) ===
   sast:
     name: CodeQL SAST
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -22,7 +25,16 @@ jobs:
           java-version: 17
           distribution: temurin
 
-      - name: Run CodeQL analysis
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: java
+          queries: security-and-quality
+
+      - name: Build with Maven
+        run: mvn -B clean package -DskipTests
+
+      - name: Analyze with CodeQL
         uses: github/codeql-action/analyze@v3
         with:
           output: results.sarif
@@ -33,6 +45,7 @@ jobs:
           name: codeql-results
           path: results.sarif
 
+  # === 2. SCA (Trivy dependency scan) ===
   sca:
     name: Trivy SCA dependency scan
     runs-on: ubuntu-latest
@@ -50,23 +63,24 @@ jobs:
       - name: Run Trivy SCA (Dependency Scan)
         run: |
           cd spring-boot-data-jpa-mysql
-          trivy fs --scanners vuln --format table --severity HIGH,CRITICAL --output ../trivy-dependency-report.txt .
+          trivy fs --scanners vuln --format table --severity HIGH,CRITICAL --output trivy-dependency-report.txt .
         continue-on-error: true
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload Trivy Dependency Report
+        uses: actions/upload-artifact@v4
         with:
           name: trivy-dependency-report
-          path: ../trivy-dependency-report.txt
+          path: spring-boot-data-jpa-mysql/trivy-dependency-report.txt
 
   # === 3. Maven Build ===
   maven-build:
-    name: Build App
+    name: Build Application
     runs-on: ubuntu-latest
     needs: [sast, sca]
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           java-version: 17
@@ -81,6 +95,7 @@ jobs:
           name: backend-jar
           path: target/*.jar
 
+  # === 4. Docker Build + Push + Container Scan ===
   docker-build:
     name: Docker Build and Push
     runs-on: ubuntu-latest
@@ -121,14 +136,14 @@ jobs:
           IMAGE_NAME: backend-app
         run: |
           cd spring-boot-data-jpa-mysql
-          trivy image --scanners vuln --format table --severity HIGH,CRITICAL --output ../trivy-image-report.txt $IMAGE_NAME:latest
+          trivy image --scanners vuln --format table --severity HIGH,CRITICAL --output trivy-image-report.txt $IMAGE_NAME:latest
         continue-on-error: true
 
       - name: Upload Trivy Image Report
         uses: actions/upload-artifact@v4
         with:
           name: trivy-image-report
-          path: trivy-image-report.txt
+          path: spring-boot-data-jpa-mysql/trivy-image-report.txt
 
       - name: Push image to ECR
         env:
@@ -139,7 +154,7 @@ jobs:
           docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
-
+  # === 5. Deploy to ECS (staging) ===
   deploy:
     name: Deploy to ECS
     runs-on: ubuntu-latest
@@ -159,10 +174,11 @@ jobs:
         uses: aws-actions/amazon-ecs-deploy-task-definition@v1
         with:
           task-definition: new-task-definition.json
-          service: backend-service   # staging ECS service
+          service: backend-service      # Treat as staging for now
           cluster: devsecopsP-cluster
           wait-for-service-stability: true
 
+  # === 6. DAST (OWASP ZAP Scan) ===
   dast:
     name: OWASP ZAP DAST Scan
     runs-on: ubuntu-latest
@@ -171,6 +187,7 @@ jobs:
       - name: Run OWASP ZAP Baseline Scan
         uses: zaproxy/action-baseline@v0.12.0
         with:
+          # Replace this with your ECS service public endpoint
           target: "http://98.84.54.189:8080/"
           cmd_options: >
             -r zap-report.html
