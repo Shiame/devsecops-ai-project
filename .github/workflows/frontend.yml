@@ -68,11 +68,23 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Download task definition
+      - name: Download and clean task definition
         run: |
           aws ecs describe-task-definition \
             --task-definition frontend-task-def \
             --query taskDefinition > task-definition.json
+
+          # Remove read-only ECS fields that cause errors
+          jq 'del(
+            .compatibilities,
+            .taskDefinitionArn,
+            .requiresAttributes,
+            .revision,
+            .status,
+            .registeredAt,
+            .registeredBy,
+            .enableFaultInjection
+          )' task-definition.json > clean-task-definition.json
 
       - name: Update image in task definition
         id: taskdef
@@ -81,7 +93,7 @@ jobs:
           ECR_REPOSITORY: frontend-app
         run: |
           IMAGE_URI="${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:latest"
-          jq '.containerDefinitions[0].image = "'$IMAGE_URI'"' task-definition.json > new-task-definition.json
+          jq '.containerDefinitions[0].image = "'$IMAGE_URI'"' clean-task-definition.json > new-task-definition.json
 
       - name: Deploy new revision to ECS
         uses: aws-actions/amazon-ecs-deploy-task-definition@v1
