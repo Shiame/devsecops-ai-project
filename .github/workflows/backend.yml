@@ -9,7 +9,6 @@ permissions:
   security-events: write
 
 jobs:
-  # === 1. SAST (CodeQL) ===
   sast:
     name: CodeQL SAST
     runs-on: ubuntu-latest
@@ -45,7 +44,6 @@ jobs:
           name: codeql-results
           path: results.sarif
 
-  # === 2. SCA (Trivy dependency scan) ===
   sca:
     name: Trivy SCA dependency scan
     runs-on: ubuntu-latest
@@ -72,7 +70,6 @@ jobs:
           name: trivy-dependency-report
           path: spring-boot-data-jpa-mysql/trivy-dependency-report.txt
 
-  # === 3. Maven Build ===
   maven-build:
     name: Build Application
     runs-on: ubuntu-latest
@@ -95,7 +92,6 @@ jobs:
           name: backend-jar
           path: spring-boot-data-jpa-mysql/target/*.jar
 
-  # === 4. Docker Build + Push + Container Scan ===
   docker-build:
     name: Docker Build and Push
     runs-on: ubuntu-latest
@@ -160,7 +156,6 @@ jobs:
           docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
-  # === 5. Deploy to ECS (staging) ===
   deploy:
     name: Deploy to ECS
     runs-on: ubuntu-latest
@@ -176,15 +171,38 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Download current ECS task definition and update image
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition backend-task-def \
+            --query taskDefinition > task-definition.json
+
+          jq 'del(
+            .compatibilities,
+            .requiresAttributes,
+            .revision,
+            .status,
+            .registeredAt,
+            .registeredBy,
+            .taskDefinitionArn
+          )' task-definition.json > clean-task-definition.json
+
+          IMAGE_URI="${{ steps.login-ecr.outputs.registry }}/backend-app:latest"
+          jq '.containerDefinitions[0].image = "'$IMAGE_URI'"' clean-task-definition.json > new-task-definition.json
+
       - name: Deploy new task definition
         uses: aws-actions/amazon-ecs-deploy-task-definition@v1
         with:
           task-definition: new-task-definition.json
-          service: backend-service      # Treat as staging for now
+          service: backend-service
           cluster: devsecopsP-cluster
           wait-for-service-stability: true
 
-  # === 6. DAST (OWASP ZAP Scan) ===
+
   dast:
     name: OWASP ZAP DAST Scan
     runs-on: ubuntu-latest
@@ -193,7 +211,6 @@ jobs:
       - name: Run OWASP ZAP Baseline Scan
         uses: zaproxy/action-baseline@v0.12.0
         with:
-          # Replace this with your ECS service public endpoint
           target: "http://98.84.54.189:8080/"
           cmd_options: >
             -r zap-report.html
