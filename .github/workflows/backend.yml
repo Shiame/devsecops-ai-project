@@ -39,7 +39,7 @@ jobs:
               IMAGE_TAG: latest
             run: |
               cd spring-boot-data-jpa-mysql
-              docker build -t $ECR_REPOSITORY:$IMAGE_TAG
+              docker build -t $ECR_REPOSITORY:$IMAGE_TAG .
               docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
               docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
