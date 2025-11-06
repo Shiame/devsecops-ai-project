@@ -42,9 +42,46 @@ jobs:
               docker build -t $ECR_REPOSITORY:$IMAGE_TAG .
               docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
               docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+    deploy:
+      name: deploy to amazon ECS
+      runs-on: ubuntu-latest
+      needs: build
+      steps:
+        - name: checkout
+          uses: actions/checkout@v4
+        - name: configure aws credentials
+          uses: aws-actions/configure-aws-credentials@v4
+          with:
+            aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+            aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            aws-region: ${{ secrets.AWS_REGION }}
+
+        - name: Download task definition
+          run: |
+            aws ecs describe-task-definition \
+            --task-definition backend-task-def \
+            --query taskDefinition > task-definition.json
+
+        - name: update image in task definition
+          id: taskdef
+          env:
+            ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+            ECR_REPOSITORY: frontend-app
+          run: |
+            IMAGE_URI="${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:latest"
+            jq '.containerDefinitions[0].image = "'$IMAGE_URI'"' task-definition.json > new-task-definition.json
+            
+
+        - name: deploy new revision to ECS
+          uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+          with:
+            task-definition: new-task-definition.json
+            service: backend-service
+            cluster: devsecopsP-cluster
+            wait-for-service-stability: true
 
 
-   # docker:
+        # docker:
     #  runs-on: ubuntu-latest
      # needs: build
       #steps:
