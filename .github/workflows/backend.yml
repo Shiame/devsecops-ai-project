@@ -216,16 +216,18 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y snapd
           sudo snap install zaproxy --classic
-          echo "/snap/bin" >> $GITHUB_PATH   
-          zaproxy -version  # quick check
+          echo "/snap/bin" >> $GITHUB_PATH
 
       - name: Run ZAP Baseline Scan
         run: |
-          /snap/bin/zaproxy -cmd -quickurl http://backend-devsecops-alb-1540679953.us-east-1.elb.amazonaws.com:8080/ \
-          -quickout zap-report.html -addonupdate
+          mkdir -p ${{ github.workspace }}/zap-results
+          /snap/bin/zaproxy -cmd \
+            -quickurl http://backend-devsecops-alb-1540679953.us-east-1.elb.amazonaws.com:8080/ \
+            -quickout ${{ github.workspace }}/zap-results/zap-report.html \
+            -addonupdate
 
       - name: Upload ZAP Report
         uses: actions/upload-artifact@v4
         with:
           name: zap-dast-report
-          path: zap-report.html
+          path: zap-results/zap-report.html
